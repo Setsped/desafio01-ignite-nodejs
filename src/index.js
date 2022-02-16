@@ -14,17 +14,19 @@ function checksExistsUserAccount(request, response, next) {
   const user = users.find((a) =>{
     return a.username === username;
   });
+
   if(!user){
-    return response.status(400).json({"error" : "usuario não encontrado!"})
+    return response.status(404).json({"error" : "usuario não encontrado!"})
   }
+
   request.user = user
   return next();
   // Complete aqui
 }
 
 app.post('/users', (request, response) => {
-  const {user, username} = request.body;
-  const userAlreadyExistis = users.find(user => user.username === username);
+  const {name, username} = request.body;
+  const userAlreadyExistis = users.some(user => user.username === username);
  
   if(userAlreadyExistis){
     return response.status(400).json({ error : "Usuario já existe!"})
@@ -32,12 +34,13 @@ app.post('/users', (request, response) => {
 
   const usuario = {
     id: uuid(),
-	  user,
+	  name,
 	  username, 
 	  todos: []
   }
 
   users.push(usuario);
+
   return response.status(201).json(usuario)
 
 });
@@ -115,7 +118,7 @@ app.delete('/todos/:id', checksExistsUserAccount, (request, response) => {
 
   user.todos.splice(todo,1)
 
-  return response.status(204).json({"message":"deletado!"})
+  return response.status(204).json()
 });
 
 module.exports = app;
