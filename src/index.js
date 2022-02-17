@@ -10,19 +10,57 @@ const users = [];
 
 function checksExistsUserAccount(request, response, next) {
   const {username} = request.headers;
-
   const user = users.find((a) =>{
     return a.username === username;
   });
 
   if(!user){
-    return response.status(404).json({"error" : "usuario não encontrado!"})
+    return response.status(404).json({error : "usuario não encontrado!"})
   }
 
   request.user = user
   return next();
+}
+
+function checksCreateTodosUserAvailability(request, response, next) {
+  const {user} = request;
+  
+  if(user.pro === false && user.todos.length === 10){
+    return response.status(404).json({error: "Assine o plano Pro para criar mais de 10 Todos!"})
+  }
+
+  next();
+}
+
+function checksTodoExists(request, response, next) {
+  const {user} = request;
+  const {id} = request.params;
+  const index = user.todos.findIndex((todo) =>{
+    return todo.id === id;
+  });
+
+  if(index === -1){
+    return response.status(404).json({"error" :"todo não encontrado!"})
+  }
+
+  request.todoIndex = index;
+  return next();
+}
+
+function findUserById(request, response, next) {
+  const {id} = request.params;
+  const user = users.find((user) =>{
+    user.id === id;
+  })
+  if(!user){
+    return response.status(404).json({error: "Usuario não encontrado!"})
+  }
+  request.user = user;
+  next()
   // Complete aqui
 }
+
+
 
 app.post('/users', (request, response) => {
   const {name, username} = request.body;
@@ -35,14 +73,13 @@ app.post('/users', (request, response) => {
   const usuario = {
     id: uuid(),
 	  name,
-	  username, 
+	  username,
+    pro: false,
 	  todos: []
   }
 
   users.push(usuario);
-
   return response.status(201).json(usuario)
-
 });
 
 app.get('/todos',checksExistsUserAccount, (request, response) => {
@@ -50,7 +87,7 @@ app.get('/todos',checksExistsUserAccount, (request, response) => {
   return response.status(200).json(user.todos);
 });
 
-app.post('/todos', checksExistsUserAccount, (request, response) => {
+app.post('/todos', checksExistsUserAccount,checksCreateTodosUserAvailability, (request, response) => {
 const { title , deadline} = request.body;
 const {user} = request;
 
@@ -66,58 +103,32 @@ const todo ={
 
 user.todos.push(todo)
 return response.status(201).json(todo)
-
 });
 
-app.put('/todos/:id', checksExistsUserAccount, (request, response) => {
+app.put('/todos/:id', checksExistsUserAccount,checksTodoExists, (request, response) => {
   const {title , deadline} = request.body;
-  const {id} = request.params;
   const {user} = request;
+  const {todoIndex} = request;
 
-  const index = user.todos.findIndex((todo) =>{
-    return todo.id === id;
-  });
+  user.todos[todoIndex].title = title;
+  user.todos[todoIndex].deadline = new Date(deadline);
 
-  if(index === -1){
-    return response.status(404).json({"error" :"Id não encontrada!"})
-  }
-
-  user.todos[index].title = title;
-  user.todos[index].deadline = new Date(deadline);
-
-  return response.status(201).json(user.todos[index])
+  return response.status(201).json(user.todos[todoIndex])
 });
 
-app.patch('/todos/:id/done', checksExistsUserAccount, (request, response) => {
+app.patch('/todos/:id/done', checksExistsUserAccount,checksTodoExists, (request, response) => {
   const {user} = request;
-  const {id} = request.params
+  const {todoIndex} = request;
 
-  const index = user.todos.findIndex((todo) =>{
-    return todo.id === id;
-  });
-
-  if(index === -1){
-    return response.status(404).json({"error" :"Id não encontrada!"})
-  }
-
-  user.todos[index].done = true;
-
-  return response.status(201).json(user.todos[index])
+  user.todos[todoIndex].done = true;
+  return response.status(201).json(user.todos[todoIndex])
 });
 
-app.delete('/todos/:id', checksExistsUserAccount, (request, response) => {
-  const {id} = request.params;
+app.delete('/todos/:id', checksExistsUserAccount,checksTodoExists, (request, response) => {
   const {user} = request;
-  const todo = user.todos.filter((todo) =>{
-    return todo.id === id;
-  });
+  const {todoIndex} = request;
 
-  if(todo.length === 0){
-    return response.status(404).json({"error":"todo não encontrada!"})
-  }
-
-  user.todos.splice(todo,1)
-
+  user.todos.splice(todoIndex,1)
   return response.status(204).json()
 });
 
